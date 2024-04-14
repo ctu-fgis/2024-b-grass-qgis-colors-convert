@@ -1,10 +1,38 @@
 import os
+from string import Template
 
 
-def conversion(table_path, output_path):
+def convert_color_table_grass_to_qgis(table_path, output_path):
+    """
+      Convert a color table in GRASS GIS format to QGIS format.
+
+      Args:
+          table_path (str): Path to the input color table in GRASS format.
+          output_path (str): Path to save the output color table in QGIS format.
+
+      Returns:
+          None (The function generates an XML file with the updated color palette
+           at the specified output path.)
+
+      """
+
     # Create the directories if they do not exist
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
+    # Template for the QGIS color table
+    t = Template('''
+        <!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>
+        <qgis version="3.34.2-Prizren">
+        <rasterrenderer opacity="1" alphaBand="0" band="1" type="paletted">
+            <rasterTransparency/>
+            <colorPalette>
+            $palette
+            </colorPalette>
+        </rasterrenderer>
+        </qgis>
+    ''')
+
+    # Dictionary of color names and their RGB values from GRASS GIS
     color_dict = {
         'aqua': "100 128 255",
         'black': "0 0 0",
@@ -26,47 +54,39 @@ def conversion(table_path, output_path):
 
     # Open the table
     with open(table_path, 'r') as table:
-        table_lines = table.readlines()
+        table_lines = []
+        # replace color names with rgb values
+        for line in table:
+            for color, rgb in color_dict.items():
+                if color in line:
+                    line = line.replace(color, rgb)
+                    break
+            table_lines.append(line)
 
-    # replace color names with rgb values
-    for i, line in enumerate(table_lines):
-        for color in color_dict:
-            if color in line:
-                table_lines[i] = line.replace(color, color_dict[color])
+    # Write the table
+    palette = []
+    for line in table_lines:
+        if line:  # Check if line is not empty
+            # replace : with space
+            line = line.replace(":", " ")
+            parts = line.split()
+            percentage = parts[0]
 
-    # Create the output table
+            #  reformat percentage from 40% to 0.4
+            if "%" in percentage:
+                percentage = int(percentage[:-1]) / 100
+
+            rgb_values = tuple(map(int, parts[1:]))
+            hex_color = '#{:02x}{:02x}{:02x}'.format(*rgb_values)
+            palette.append(
+                "  " + f'<paletteEntry value="{percentage}" color="{hex_color}" label="{percentage}"/>' + "\n")
+
+    # Write the output table to the file
     with open(output_path, 'w') as output_table:
-        qml_header = open("qml_form", "r")
-
-        # Write the header as first 5 lines from the qml_form file
-        for i in range(5):
-            output_table.write(qml_header.readline())
-
-        # Write the table
-        for line in table_lines:
-            if line:  # Check if line is not empty
-                # replace : with space
-                line = line.replace(":", " ")
-                parts = line.split()
-                percantage = parts[0]
-
-                # refromat percantage from 40% to 0.4
-                if "%" in percantage:
-                    percantage = int(percantage[:-1]) / 100
-
-                rgb_values = tuple(map(int, parts[1:]))
-                hex_color = '#{:02x}{:02x}{:02x}'.format(*rgb_values)
-                output_table.write(
-                    "  " + f'<paletteEntry value="{percantage}" color="{hex_color}" label="{percantage}"/>' + "\n")
-
-        # Add the footer - the rest of the qml_form.txt from line 6
-        for line in qml_header:
-            output_table.write(line)
-
-        qml_header.close()
+        output_table.write(t.substitute(palette="".join(palette)))
 
 
 if __name__ == '__main__':
-    Input = r"input_tables\grass\corine"
+    Input = r"input_tables\grass\elevation"
     Output = r"output_tables\qgis\new_table.qml"
-    conversion(Input, Output)
+    convert_color_table_grass_to_qgis(Input, Output)
