@@ -20,16 +20,16 @@ def convert_color_table_grass_to_qgis(table_path, output_path):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     # Template for the QGIS color table
-    t = Template('''
-        <!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>
+    t = Template('''\
+    <!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>
         <qgis version="3.34.2-Prizren">
-        <rasterrenderer opacity="1" alphaBand="0" band="1" type="paletted">
-            <rasterTransparency/>
-            <colorPalette>
-            $palette
-            </colorPalette>
-        </rasterrenderer>
-        </qgis>
+      <rasterrenderer opacity="1" alphaBand="0" band="1" type="paletted">
+        <rasterTransparency/>
+        <colorPalette>
+$palette
+        </colorPalette>
+      </rasterrenderer>
+    </qgis>
     ''')
 
     # Dictionary of color names and their RGB values from GRASS GIS
@@ -79,14 +79,15 @@ def convert_color_table_grass_to_qgis(table_path, output_path):
             rgb_values = tuple(map(int, parts[1:]))
             hex_color = '#{:02x}{:02x}{:02x}'.format(*rgb_values)
             palette.append(
-                "  " + f'<paletteEntry value="{percentage}" color="{hex_color}" label="{percentage}"/>' + "\n")
+                "        " + f'<paletteEntry value="{percentage}" color="{hex_color}" label="{percentage}"/>' + "\n")
 
     # Write the output table to the file
     with open(output_path, 'w') as output_table:
         output_table.write(t.substitute(palette="".join(palette)))
 
 
-if __name__ == '__main__':
-    Input = r"input_tables\grass\elevation"
-    Output = r"output_tables\qgis\new_table.qml"
+if __name__ in ('__main__', '__console__'):
+    tables_dir = os.path.dirname(__file__)
+    Input = os.path.join(tables_dir, "input_tables", "grass", "corine")
+    Output = os.path.join(tables_dir, "output_tables", "qgis", "new_table.qml")
     convert_color_table_grass_to_qgis(Input, Output)
