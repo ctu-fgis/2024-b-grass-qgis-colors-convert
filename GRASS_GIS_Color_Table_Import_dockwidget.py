@@ -25,7 +25,10 @@
 import os
 
 from qgis.PyQt import QtGui, QtWidgets, uic
-from qgis.PyQt.QtCore import pyqtSignal
+from qgis.PyQt.QtCore import pyqtSignal, Qt
+from qgis.utils import iface
+from qgis.gui import QgsMessageBar
+from qgis.core import Qgis
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'GRASS_GIS_Color_Table_Import_dockwidget_base.ui'))
@@ -44,7 +47,36 @@ class GRASSGISColorTableImportDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         # http://doc.qt.io/qt-5/designer-using-a-ui-file.html
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
+        self.RunButton.clicked.connect(self.Run)
+
 
     def closeEvent(self, event):
         self.closingPlugin.emit()
         event.accept()
+
+    def Run(self):
+        # Get the selected layer from SelectLayerComboBox
+        selected_file = self.SelectLayerComboBox.currentText()
+
+        # Add warning if no layer is selected
+        if selected_file == "":
+            iface.messageBar().pushMessage(
+                "Error",
+                "Please select a raster layer!",
+                level = Qgis.Warning,
+                duration = 5
+            )
+            return
+
+        # Get the input GRASS color table file
+        GRASStable = self.SelectFileWidget.filePath()
+
+        # Add warning if no file is selected
+        if GRASStable == "":
+            iface.messageBar().pushMessage(
+                "Error",
+                "Please select a GRASS color table!",
+                level = Qgis.Warning,
+                duration = 5
+            )
+            return
