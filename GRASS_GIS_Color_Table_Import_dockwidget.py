@@ -28,14 +28,17 @@ from qgis.PyQt import QtGui, QtWidgets, uic
 from qgis.PyQt.QtCore import pyqtSignal, Qt
 from qgis.utils import iface
 from qgis.gui import QgsMessageBar
-from qgis.core import Qgis
+from qgis.core import Qgis, QgsMapLayerStyle
+import tempfile
+from qgis_color_func import convert_color_table_grass_to_qgis
+import shutil
+from qgis.core import QgsProject
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'GRASS_GIS_Color_Table_Import_dockwidget_base.ui'))
 
 
 class GRASSGISColorTableImportDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
-
     closingPlugin = pyqtSignal()
 
     def __init__(self, parent=None):
@@ -48,23 +51,48 @@ class GRASSGISColorTableImportDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
         self.RunButton.clicked.connect(self.Run)
-
+        self.SaveFileCheckBox.stateChanged.connect(self.ToggleFileSave)
+        self.OutputFileWidget.hide()
+        self.OutputLocationLabel.hide()
+        self.TableNameLabel.hide()
+        self.OutputFileName.hide()
 
     def closeEvent(self, event):
         self.closingPlugin.emit()
         event.accept()
 
+    def ToggleFileSave(self):
+        if self.SaveFileCheckBox.isChecked():
+            # enable OutputFileWidget
+            self.OutputFileWidget.show()
+            self.OutputLocationLabel.show()
+            self.TableNameLabel.show()
+            self.OutputFileName.show()
+        else:
+            # disable OutputFileWidget
+            self.OutputFileWidget.hide()
+            self.OutputLocationLabel.hide()
+            self.TableNameLabel.hide()
+            self.OutputFileName.hide()
+
     def Run(self):
+        """
+        Function to apply the selected GRASS color table to the selected raster layer.
+        Optionally saves the QML file to the users machine
+        :return:
+        """
         # Get the selected layer from SelectLayerComboBox
-        selected_file = self.SelectLayerComboBox.currentText()
+        selectedLayer = self.SelectLayerComboBox.currentText()
+        # Get the selected layer object
+        selectedLayer = QgsProject.instance().mapLayersByName(selectedLayer)[0]
 
         # Add warning if no layer is selected
-        if selected_file == "":
+        if selectedLayer == "":
             iface.messageBar().pushMessage(
                 "Error",
                 "Please select a raster layer!",
-                level = Qgis.Warning,
-                duration = 5
+                level=Qgis.Warning,
+                duration=5
             )
             return
 
@@ -76,7 +104,53 @@ class GRASSGISColorTableImportDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             iface.messageBar().pushMessage(
                 "Error",
                 "Please select a GRASS color table!",
-                level = Qgis.Warning,
-                duration = 5
+                level=Qgis.Warning,
+                duration=5
             )
             return
+
+        # Create a temporary directory
+        tempdir = tempfile.mkdtemp()
+        Tempfile = os.path.join(tempdir, "tempfile.qml")
+        # Get the selected color table type
+        convert_color_table_grass_to_qgis(GRASStable, Tempfile)
+
+        # Load the QML file
+        selectedLayer.loadNamedStyle(Tempfile)
+
+        # Refresh the layer to reflect the changes
+        selectedLayer.triggerRepaint()
+
+        # Save the QML file if SaveFileCheckBox is checked
+        SaveFileCheckBox = self.SaveFileCheckBox.isChecked()
+
+        if SaveFileCheckBox:
+            # Save the QML file into users machine
+            try:
+                # Get the output file name
+                OutputFileName = self.OutputFileName.text()
+                # Remove any existing extension and add .qml
+                OutputFileName = os.path.splitext(OutputFileName)[0] + '.qml'
+                # Copy the temporary file to the output file
+                OutputFileName = os.path.join(self.OutputFileWidget.filePath(), OutputFileName)
+                shutil.copyfile(Tempfile, OutputFileName)
+            except:
+                # Add warning if no or invalid file is selected
+                iface.messageBar().pushMessage(
+                    "Error",
+                    "Please select a valid output path and file name!",
+                    level=Qgis.Warning,
+                    duration=5
+                )
+                return
+
+        # remove temporary directory
+        shutil.rmtree(tempdir)
+
+        # Add success message
+        iface.messageBar().pushMessage(
+            "Success",
+            "Color table applied successfully!",
+            level=Qgis.Success,
+            duration=5
+        )
