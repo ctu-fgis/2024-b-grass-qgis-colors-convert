@@ -30,9 +30,10 @@ from qgis.utils import iface
 from qgis.gui import QgsMessageBar
 from qgis.core import Qgis, QgsMapLayerStyle
 import tempfile
-from .qgis_color_func import convert_color_table_grass_to_qgis
+from qgis_color_func import convert_color_table_grass_to_qgis
 import shutil
 from qgis.core import QgsProject
+from PyQt5.QtGui import QIcon
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'GRASS_GIS_Color_Table_Import_dockwidget_base.ui'))
@@ -52,14 +53,55 @@ class GRASSGISColorTableImportDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.setupUi(self)
         self.RunButton.clicked.connect(self.Run)
         self.SaveFileCheckBox.stateChanged.connect(self.ToggleFileSave)
+        self.SelectFileCheckBox.stateChanged.connect(self.ToggleFileSelect)
         self.OutputFileWidget.hide()
         self.OutputLocationLabel.hide()
         self.TableNameLabel.hide()
         self.OutputFileName.hide()
+        self.TableLabel.hide()
+        self.SelectFileWidget.hide()
+        self.nonDefaultFileSelectedFlag = False
+
+        # Get the path to the directory
+        grass_dir = os.path.join(os.path.dirname(__file__), "input_tables", "grass")
+        images_dir = os.path.join(os.path.dirname(__file__), "input_tables", "grass", "images")
+
+        # Get a list of all file names in the directory
+        file_names = os.listdir(grass_dir)
+
+        # Add each file name to the GRASScomboBox
+        for file_name in file_names:
+            # Check if corresponding SVG or PNG file exists
+            for extension in ['.svg', '.png']:
+                icon_path = os.path.join(images_dir, file_name + extension)
+                if os.path.exists(icon_path):
+                    # Create a QIcon object for the corresponding SVG or PNG file
+                    icon = QIcon(icon_path)
+
+                    # Add the file name and icon to the combo box
+                    self.GRASScomboBox.addItem(icon, file_name)
+                    break  # If icon is found, no need to check for other extensions
+
+
+
 
     def closeEvent(self, event):
         self.closingPlugin.emit()
         event.accept()
+
+    def ToggleFileSelect(self):
+        if self.SelectFileCheckBox.isChecked():
+            # enable SelectFileWidget
+            self.SelectFileWidget.show()
+            self.TableLabel.show()
+            self.GRASScomboBox.setEnabled(False)
+            self.nonDefaultFileSelectedFlag = True
+        else:
+            # disable SelectFileWidget
+            self.SelectFileWidget.hide()
+            self.TableLabel.hide()
+            self.GRASScomboBox.setEnabled(True)
+            self.nonDefaultFileSelectedFlag = False
 
     def ToggleFileSave(self):
         if self.SaveFileCheckBox.isChecked():
@@ -97,23 +139,32 @@ class GRASSGISColorTableImportDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             return
 
         # Get the input GRASS color table file
-        GRASStable = self.SelectFileWidget.filePath()
+        if not self.nonDefaultFileSelectedFlag:
+            # Get the selected GRASS color table from comboBox
+            GRASStable = os.path.join(os.path.dirname(__file__), "input_tables", "grass",
+                                      self.GRASScomboBox.currentText())
 
-        # Add warning if no file is selected
-        if GRASStable == "":
-            iface.messageBar().pushMessage(
-                "Error",
-                "Please select a GRASS color table!",
-                level=Qgis.Warning,
-                duration=5
-            )
-            return
+        else:
+            # Get the selected GRASS color table from users defined file
+            GRASStable = self.SelectFileWidget.filePath()
+
+            # Add warning if no file is selected
+            if GRASStable == "":
+                iface.messageBar().pushMessage(
+                    "Error",
+                    "Please select a GRASS color table!",
+                    level=Qgis.Warning,
+                    duration=5
+                )
+                return
 
         # Create a temporary directory
         tempdir = tempfile.mkdtemp()
         Tempfile = os.path.join(tempdir, "tempfile.qml")
         # Get the selected color table type
+
         convert_color_table_grass_to_qgis(GRASStable, Tempfile)
+
 
         # Load the QML file
         selectedLayer.loadNamedStyle(Tempfile)
