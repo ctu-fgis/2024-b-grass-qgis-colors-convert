@@ -30,7 +30,7 @@ from qgis.utils import iface
 from qgis.gui import QgsMessageBar
 from qgis.core import Qgis, QgsMapLayerStyle
 import tempfile
-from qgis_color_func import convert_color_table_grass_to_qgis
+from .qgis_color_func import convert_color_table_grass_to_qgis
 import shutil
 from qgis.core import QgsProject
 from PyQt5.QtGui import QIcon
