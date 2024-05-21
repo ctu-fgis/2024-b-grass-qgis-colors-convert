@@ -18,7 +18,11 @@
     <item row="13" column="0" colspan="3">
      <widget class="QPushButton" name="RunButton">
       <property name="text">
-       <string>Run</string>
+       <string>   Run</string>
+      </property>
+      <property name="icon">
+       <iconset>
+        <normaloff>../icon.png</normaloff>../icon.png</iconset>
       </property>
      </widget>
     </item>
