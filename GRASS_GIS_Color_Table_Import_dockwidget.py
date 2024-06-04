@@ -56,9 +56,6 @@ class GRASSGISColorTableImportDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.SelectFileCheckBox.stateChanged.connect(self.ToggleFileSelect)
         self.OutputFileWidget.hide()
         self.OutputLocationLabel.hide()
-        self.TableNameLabel.hide()
-        self.OutputFileName.hide()
-        self.TableLabel.hide()
         self.SelectFileWidget.hide()
         self.nonDefaultFileSelectedFlag = False
 
@@ -82,9 +79,6 @@ class GRASSGISColorTableImportDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                     self.GRASScomboBox.addItem(icon, file_name)
                     break  # If icon is found, no need to check for other extensions
 
-
-
-
     def closeEvent(self, event):
         self.closingPlugin.emit()
         event.accept()
@@ -93,13 +87,11 @@ class GRASSGISColorTableImportDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         if self.SelectFileCheckBox.isChecked():
             # enable SelectFileWidget
             self.SelectFileWidget.show()
-            self.TableLabel.show()
             self.GRASScomboBox.setEnabled(False)
             self.nonDefaultFileSelectedFlag = True
         else:
             # disable SelectFileWidget
             self.SelectFileWidget.hide()
-            self.TableLabel.hide()
             self.GRASScomboBox.setEnabled(True)
             self.nonDefaultFileSelectedFlag = False
 
@@ -108,14 +100,11 @@ class GRASSGISColorTableImportDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             # enable OutputFileWidget
             self.OutputFileWidget.show()
             self.OutputLocationLabel.show()
-            self.TableNameLabel.show()
-            self.OutputFileName.show()
+
         else:
             # disable OutputFileWidget
             self.OutputFileWidget.hide()
             self.OutputLocationLabel.hide()
-            self.TableNameLabel.hide()
-            self.OutputFileName.hide()
 
     def Run(self):
         """
@@ -126,7 +115,16 @@ class GRASSGISColorTableImportDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         # Get the selected layer from SelectLayerComboBox
         selectedLayer = self.SelectLayerComboBox.currentText()
         # Get the selected layer object
-        selectedLayer = QgsProject.instance().mapLayersByName(selectedLayer)[0]
+        try:
+            selectedLayer = QgsProject.instance().mapLayersByName(selectedLayer)[0]
+        except:
+            iface.messageBar().pushMessage(
+                "Error",
+                "Please select a raster layer!",
+                level=Qgis.Warning,
+                duration=5
+            )
+            return
 
         # Add warning if no layer is selected
         if selectedLayer == "":
@@ -165,7 +163,6 @@ class GRASSGISColorTableImportDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
 
         convert_color_table_grass_to_qgis(GRASStable, Tempfile)
 
-
         # Load the QML file
         selectedLayer.loadNamedStyle(Tempfile)
 
@@ -179,11 +176,18 @@ class GRASSGISColorTableImportDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             # Save the QML file into users machine
             try:
                 # Get the output file name
-                OutputFileName = self.OutputFileName.text()
-                # Remove any existing extension and add .qml
-                OutputFileName = os.path.splitext(OutputFileName)[0] + '.qml'
+                OutputFilePathAndName = self.OutputFileWidget.filePath()
                 # Copy the temporary file to the output file
-                OutputFileName = os.path.join(self.OutputFileWidget.filePath(), OutputFileName)
+                OutputFileName = os.path.normpath(OutputFilePathAndName)
+                # if file does not have .qml extension raise warning
+                if not OutputFileName.endswith(".qml"):
+                    iface.messageBar().pushMessage(
+                        "Warning",
+                        "Your file IS SAVED but with unexpected extension! (.qml is expected)",
+                        level=Qgis.Warning,
+                        duration=5
+                    )
+                    return
                 shutil.copyfile(Tempfile, OutputFileName)
             except:
                 # Add warning if no or invalid file is selected
