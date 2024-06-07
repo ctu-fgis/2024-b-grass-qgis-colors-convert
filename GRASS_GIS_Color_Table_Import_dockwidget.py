@@ -28,7 +28,7 @@ from qgis.PyQt import QtGui, QtWidgets, uic
 from qgis.PyQt.QtCore import pyqtSignal, Qt
 from qgis.utils import iface
 from qgis.gui import QgsMessageBar
-from qgis.core import Qgis, QgsMapLayerStyle
+from qgis.core import Qgis, QgsMapLayerStyle, QgsMapLayerType, QgsMapLayerProxyModel, QgsRasterLayer
 import tempfile
 from .qgis_color_func import convert_color_table_grass_to_qgis
 import shutil
@@ -54,6 +54,7 @@ class GRASSGISColorTableImportDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.RunButton.clicked.connect(self.Run)
         self.SaveFileCheckBox.stateChanged.connect(self.ToggleFileSave)
         self.SelectFileCheckBox.stateChanged.connect(self.ToggleFileSelect)
+        self.LayerFileSelectButton.clicked.connect(self.SelectLayerFile)
         self.OutputFileWidget.hide()
         self.OutputLocationLabel.hide()
         self.SelectFileWidget.hide()
@@ -78,6 +79,34 @@ class GRASSGISColorTableImportDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                     # Add the file name and icon to the combo box
                     self.GRASScomboBox.addItem(icon, file_name)
                     break  # If icon is found, no need to check for other extensions
+
+        # Set filter to raster layers to SelectLayerComboBox
+        self.mMapLayerComboBox.setFilters(QgsMapLayerProxyModel.RasterLayer)
+
+    def SelectLayerFile(self):
+        """
+        Function to select raster layer from file dialog
+        """
+        # Get the selected file path
+        selectedFile = QtWidgets.QFileDialog.getOpenFileName(self, "Select Raster Layer", "",
+                                                             "Raster Files (*.tif *.tiff *.asc *.img *.jp2 *.vrt "
+                                                             "*.bil *.bip *.bmp *.bsq *.dat *.ecw *.gif *.grd *.hdf "
+                                                             "*.jp2 *.jpg *.jpeg *.png *.ppm *.pgm *.tif *.tiff *.xyz "
+                                                             "*.nc *.nc4 *.nc3 *.ntf)")[
+            0]
+
+        if selectedFile:
+            # Extract the filename without the path
+            layerName = os.path.basename(selectedFile)
+            # Create QgsRasterLayer from file
+            rasterLayer = QgsRasterLayer(selectedFile, layerName)
+            if rasterLayer.isValid():
+                # Add the raster layer to the project
+                QgsProject.instance().addMapLayer(rasterLayer)
+                # Add the raster layer to the combo box
+                self.mMapLayerComboBox.addItem(rasterLayer.name())
+            else:
+                self.ErrorMsg("Please select a valid raster layer!")
 
     def closeEvent(self, event):
         self.closingPlugin.emit()
@@ -106,6 +135,19 @@ class GRASSGISColorTableImportDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             self.OutputFileWidget.hide()
             self.OutputLocationLabel.hide()
 
+    def ErrorMsg(self, message):
+        """
+        Function to display error messages
+        :param message: The message to be displayed
+        :return:
+        """
+        iface.messageBar().pushMessage(
+            "Error",
+            message,
+            level=Qgis.Critical,
+            duration=5
+        )
+
     def Run(self):
         """
         Function to apply the selected GRASS color table to the selected raster layer.
@@ -113,27 +155,17 @@ class GRASSGISColorTableImportDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         :return:
         """
         # Get the selected layer from SelectLayerComboBox
-        selectedLayer = self.SelectLayerComboBox.currentText()
+        selectedLayer = self.mMapLayerComboBox.currentText()
         # Get the selected layer object
         try:
             selectedLayer = QgsProject.instance().mapLayersByName(selectedLayer)[0]
         except:
-            iface.messageBar().pushMessage(
-                "Error",
-                "Please select a raster layer!",
-                level=Qgis.Warning,
-                duration=5
-            )
+            self.ErrorMsg("Please select a valid raster layer!")
             return
 
         # Add warning if no layer is selected
         if selectedLayer == "":
-            iface.messageBar().pushMessage(
-                "Error",
-                "Please select a raster layer!",
-                level=Qgis.Warning,
-                duration=5
-            )
+            self.ErrorMsg("Please select a raster layer!")
             return
 
         # Get the input GRASS color table file
@@ -144,24 +176,26 @@ class GRASSGISColorTableImportDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
 
         else:
             # Get the selected GRASS color table from users defined file
-            GRASStable = self.SelectFileWidget.filePath()
+            try:
+                GRASStable = self.SelectFileWidget.filePath()
+            except:
+                self.ErrorMsg("Please select a valid GRASS color table")
+                return
 
             # Add warning if no file is selected
             if GRASStable == "":
-                iface.messageBar().pushMessage(
-                    "Error",
-                    "Please select a GRASS color table!",
-                    level=Qgis.Warning,
-                    duration=5
-                )
+                self.ErrorMsg("Please select a valid GRASS color table")
                 return
 
         # Create a temporary directory
         tempdir = tempfile.mkdtemp()
         Tempfile = os.path.join(tempdir, "tempfile.qml")
         # Get the selected color table type
-
-        convert_color_table_grass_to_qgis(GRASStable, Tempfile)
+        try:
+            convert_color_table_grass_to_qgis(GRASStable, Tempfile)
+        except:
+            self.ErrorMsg("Please select a valid GRASS color table")
+            return
 
         # Load the QML file
         selectedLayer.loadNamedStyle(Tempfile)
@@ -177,6 +211,11 @@ class GRASSGISColorTableImportDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             try:
                 # Get the output file name
                 OutputFilePathAndName = self.OutputFileWidget.filePath()
+                # Add warning if no filepath is selected
+                if OutputFilePathAndName == "":
+                    self.ErrorMsg("Please select a valid output path and file name!")
+                    return
+
                 # Copy the temporary file to the output file
                 OutputFileName = os.path.normpath(OutputFilePathAndName)
                 # if file does not have .qml extension raise warning
@@ -187,16 +226,11 @@ class GRASSGISColorTableImportDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                         level=Qgis.Warning,
                         duration=5
                     )
-                    return
+
                 shutil.copyfile(Tempfile, OutputFileName)
             except:
                 # Add warning if no or invalid file is selected
-                iface.messageBar().pushMessage(
-                    "Error",
-                    "Please select a valid output path and file name!",
-                    level=Qgis.Warning,
-                    duration=5
-                )
+                self.ErrorMsg("Please select a valid output path and file name!")
                 return
 
         # remove temporary directory
