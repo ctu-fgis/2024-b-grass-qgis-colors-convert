@@ -67,14 +67,17 @@ $palette
     palette = []
     for line in table_lines:
         if line:  # Check if line is not empty
+            # skip comment lines
+            if line.startswith("#"):
+                continue
             # replace : with space
             line = line.replace(":", " ")
             parts = line.split()
             percentage = parts[0]
 
-            #  reformat percentage from 40% to 0.4
+            #  reformat percentage from 40% to 0.4,
             if "%" in percentage:
-                percentage = int(percentage[:-1]) / 100
+                percentage = float(percentage[:-1]) / 100
 
             rgb_values = tuple(map(int, parts[1:]))
             hex_color = '#{:02x}{:02x}{:02x}'.format(*rgb_values)
