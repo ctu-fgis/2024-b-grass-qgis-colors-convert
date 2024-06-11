@@ -5,11 +5,14 @@ and if the output table is created correctly
 """
 import os
 from pathlib import Path
-import pytest
-from qgis.core import QgsRasterLayer
 import tempfile
-from qgis_color_func import convert_color_table_grass_to_qgis
 import filecmp
+
+from qgis.core import QgsRasterLayer
+import pytest
+
+from qgis_color_func import convert_color_table_grass_to_qgis
+
 
 def getCORINEtable():
     """
@@ -98,6 +101,21 @@ def test_CreateQGISLayer():
         assert True
 
 
+def normalize_line_endings(text):
+    """
+    Normalize line endings to LF (Unix style).
+    """
+    return text.replace('\r\n', '\n').replace('\r', '\n')
+
+
+def write_with_lf_line_endings(content, filepath):
+    """
+    Write content to a file with LF (Unix style) line endings.
+    """
+    with open(filepath, 'w', newline='\n') as f:
+        f.write(content)
+
+
 def test_applyGRASSColorTable():
     """
     Apply the GRASS color table to the raster layer, and check if it is applied successfully.
@@ -113,6 +131,12 @@ def test_applyGRASSColorTable():
 
     # Convert the GRASS color table to QGIS format
     convert_color_table_grass_to_qgis(GRASStable_path, Tempfile)
+
+    # Normalize line endings of the generated QML file
+    with open(Tempfile, 'r') as f:
+        content = f.read()
+    normalized_content = normalize_line_endings(content)
+    write_with_lf_line_endings(normalized_content, Tempfile)
 
     # Apply the color table
     rasterLayer.loadNamedStyle(str(Tempfile))
@@ -138,6 +162,12 @@ def test_OutputFile():
     # Convert the GRASS color table to QGIS format
     convert_color_table_grass_to_qgis(GRASStable_path, Tempfile)
 
+    # Normalize line endings of the generated QML file
+    with open(Tempfile, 'r') as f:
+        content = f.read()
+    normalized_content = normalize_line_endings(content)
+    write_with_lf_line_endings(normalized_content, Tempfile)
+
     # Check if the output table is created correctly
     script_dir = Path(__file__).resolve().parent
 
@@ -151,7 +181,7 @@ def test_OutputFile():
     CORINE_file_path = target_dir / filename
 
     # Compare the output table with the reference table
-    print("Generated file mathces the reference file (corine): ",
+    print("Generated file matches the reference file (corine): ",
           filecmp.cmp(Tempfile, CORINE_file_path, shallow=False))
     assert filecmp.cmp(Tempfile, CORINE_file_path, shallow=False)
 
