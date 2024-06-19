@@ -1,4 +1,4 @@
-9name: QGIS Color Table Tests
+name: QGIS Color Table Tests
 
 on: [push, pull_request]
 
