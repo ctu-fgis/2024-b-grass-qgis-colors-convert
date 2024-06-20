@@ -1,36 +1,29 @@
-name: QGIS Color Table Tests
+name: QGIS Color Table Tests  
 
-on: [push, pull_request]
+on: [push, pull_request]  
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest 
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+    - name: Checkout repository  
+      uses: actions/checkout@v3  # Action to checkout the repository
 
-    - name: Set up QGIS and Python
+    - name: Set up QGIS and Python 
       run: |
-        sudo add-apt-repository -y ppa:ubuntugis/ppa
-        sudo apt-get update
-        sudo apt-get install -y qgis python3.10 python3.10-dev python3-pip
-        sudo apt-get install -y qgis-plugin-grass
-        python3.10 -m pip install --upgrade pip
-        python3.10 -m pip install pytest pytest-qt PyQt6
-        sudo apt-get install -y gdb
-    - name: Set up QGIS environment variables
+        sudo add-apt-repository -y ppa:ubuntugis/ppa  # Add Ubuntu GIS PPA
+        sudo apt-get update  # Update package lists
+        sudo apt-get install -y qgis python3.10 python3.10-dev python3-pip  # Install QGIS and Python dependencies
+        sudo apt-get install -y qgis-plugin-grass  
+        python3.10 -m pip install --upgrade pip  # Upgrade pip for Python 3.10
+        python3.10 -m pip install pytest pytest-qt PyQt6  # Install testing dependencies
+
+    - name: Run tests  # Step to run tests
       run: |
-        echo "QGIS_PREFIX_PATH=/usr" >> $GITHUB_ENV
-        echo "PYTHONPATH=/usr/share/qgis/python:$GITHUB_WORKSPACE" >> $GITHUB_ENV
-        echo "LD_LIBRARY_PATH=/usr/lib" >> $GITHUB_ENV
-        echo "QGIS_DEBUG=0" >> $GITHUB_ENV
-        echo "QGIS_LOG_FILE=/dev/null" >> $GITHUB_ENV
-    - name: Run tests
-      run: |
-        export QGIS_PREFIX_PATH="/usr"
-        export PYTHONPATH="/usr/share/qgis/python:$GITHUB_WORKSPACE"
-        export LD_LIBRARY_PATH="/usr/lib"
-        export QGIS_DEBUG=0
-        export QGIS_LOG_FILE=/dev/null
-        pytest test/test_qgis_color_func.py
+        export QGIS_PREFIX_PATH="/usr"  # Set QGIS prefix path
+        export PYTHONPATH="/usr/share/qgis/python:$GITHUB_WORKSPACE"  # Set Python path
+        export LD_LIBRARY_PATH="/usr/lib"  # Set LD_LIBRARY_PATH
+        export QGIS_DEBUG=0  # Disable QGIS debugging
+        export QGIS_LOG_FILE=/dev/null  # Redirect QGIS logs to /dev/null
+        pytest test/test_qgis_color_func.py  # Run pytest for the specified test file
