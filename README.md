@@ -15,9 +15,9 @@ QGIS plugin to load predefined or custom GRASS GIS raster color tables.
 - [Important Files Description](#important-files-description)
 
 ## How to Install QGIS Plugin
-- Clone this repository:
+- [Download](https://github.com/ctu-fgis/2024-b-grass-qgis-colors-convert/archive/refs/heads/master.zip) this repository in .zip :
     ```
-    git clone https://github.com/ctu-fgis/2024-b-grass-qgis-colors-convert
+    wget https://github.com/ctu-fgis/2024-b-grass-qgis-colors-convert/archive/refs/heads/master.zip
     ```
 - Add to QGIS: <br>
   Use the video tutorial below <br>
